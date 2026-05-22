@@ -29,7 +29,7 @@ Includes short prompt guidance nudging agents to use AST search for structural c
 { "mode": "exports", "lang": "typescript", "paths": ["index.ts"] }
 ```
 
-Presets keep the tool count small while avoiding hand-written ast-grep patterns for frequent tasks. `mode` defaults to `pattern` for compatibility.
+Presets keep the tool count small while avoiding hand-written ast-grep patterns for frequent tasks. `mode` defaults to `pattern` for compatibility. For `mode: "calls"`, a bare name such as `registerCommand` matches both bare calls and member calls like `pi.registerCommand(...)`; use a dotted name for an exact callee.
 
 ## Replace
 

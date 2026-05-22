@@ -106,6 +106,11 @@ function tsLike(lang: string) {
   return ["javascript", "typescript", "tsx"].includes(lang);
 }
 
+function callPatterns(name: string): string[] {
+  if (name.includes(".")) return [`${name}($$$ARGS)`];
+  return [`${name}($$$ARGS)`, `$$$OBJ.${name}($$$ARGS)`];
+}
+
 function searchPatterns(params: any): { mode: SearchMode; patterns: string[] } {
   const mode = (params.mode ?? "pattern") as SearchMode;
   if (!SEARCH_MODES.includes(mode)) throw new Error(`Unsupported ast_grep_search mode: ${mode}`);
@@ -114,7 +119,7 @@ function searchPatterns(params: any): { mode: SearchMode; patterns: string[] } {
   const name = typeof params.name === "string" && params.name.trim() ? params.name.trim() : undefined;
   const module = typeof params.module === "string" && params.module.trim() ? params.module.trim() : undefined;
 
-  if (mode === "calls") return { mode, patterns: [`${requireString(name, "name")}($$$ARGS)`] };
+  if (mode === "calls") return { mode, patterns: callPatterns(requireString(name, "name")) };
   if (mode === "classes") return { mode, patterns: [`class ${requireString(name, "name")} { $$$BODY }`] };
 
   if (mode === "functions") {
