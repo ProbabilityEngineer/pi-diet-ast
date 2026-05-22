@@ -5,9 +5,10 @@ import { Type } from "typebox";
 const LANGS = ["bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell", "html", "java", "javascript", "json", "kotlin", "lua", "nix", "php", "python", "ruby", "rust", "scala", "solidity", "swift", "tsx", "typescript", "yaml"] as const;
 const MAX_OUTPUT = 60_000;
 const AST_PROMPT_SNIPPET =
-  "Tool routing: use AST tools for structural code search/replacement; use grep for literal text.";
+  "Tool routing: use ast_grep_search first for structural code patterns; use grep for literal text.";
 const AST_GUIDELINES = [
-  "Use ast_grep_search for structural code questions about functions, calls, imports, control flow, or patterns; use Semble for behavior discovery, LSP for known symbols/callsites, and grep for exact literals.",
+  "Use ast_grep_search as the first search tool for structural code patterns such as functions, calls, imports, catch blocks, Tasks, or control flow; use grep for exact literals.",
+  "Use Semble for behavior discovery and LSP for known symbols/callsites.",
 ];
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
