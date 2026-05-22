@@ -5,10 +5,10 @@ import { Type } from "typebox";
 const LANGS = ["bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell", "html", "java", "javascript", "json", "kotlin", "lua", "nix", "php", "python", "ruby", "rust", "scala", "solidity", "swift", "tsx", "typescript", "yaml"] as const;
 const MAX_OUTPUT = 60_000;
 const AST_PROMPT_SNIPPET =
-  "Tool routing: use ast_grep_search first for structural code patterns; use grep for literal text.";
+  "Tool routing: use ast_grep_search before scripts/grep for structural code patterns; use grep for literal text.";
 const AST_GUIDELINES = [
-  "Use ast_grep_search as the first search tool for structural code patterns such as functions, calls, imports, catch blocks, Tasks, or control flow; use grep for exact literals.",
-  "Use Semble for behavior discovery and LSP for known symbols/callsites.",
+  "Use ast_grep_search before writing scripts or using grep/find for structural code patterns such as functions, calls, imports, catch blocks, Tasks, or control flow.",
+  "Use ast_grep_replace for structural edits; use grep only for exact literal text, strings, or identifiers.",
 ];
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
@@ -70,7 +70,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "ast_grep_search",
     label: "AST Search",
-    description: "AST-aware code search. Use code-shaped patterns, not regex/text. Examples: foo($$$ARGS), function $NAME($$$ARGS) { $$$BODY }.",
+    description: "AST-aware code search for structural patterns. Use before grep/find/scripts for syntax patterns like functions, calls, imports, catch blocks, Tasks, or control flow. Use code-shaped patterns, not regex/text. Examples: foo($$$ARGS), function $NAME($$$ARGS) { $$$BODY }.",
     promptSnippet: AST_PROMPT_SNIPPET,
     promptGuidelines: AST_GUIDELINES,
     parameters: Type.Object({
