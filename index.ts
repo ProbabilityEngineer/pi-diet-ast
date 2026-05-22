@@ -9,7 +9,7 @@ const AST_PROMPT_SNIPPET =
   "Tool routing: use ast_grep_search first for structural code-shape questions; use grep for literal text.";
 const AST_GUIDELINES = [
   "Use ast_grep_search first for structural code-shape questions, including calls, imports, exports, functions/classes, object literals, decorators, catch blocks, and control flow, even when the target file is unknown.",
-  "Use ast_grep_search mode presets for common calls/imports/functions/classes/exports searches; use pattern for custom AST shapes.",
+  "For calls/imports/functions/classes/exports, set mode plus name/module; use pattern only for custom AST shapes.",
   "Use Semble for conceptual behavior discovery, not syntax-shape searches; use grep only for exact literal text, strings, or identifiers.",
   "Use ast_grep_replace for structural edits; keep dry-run unless applying an intentional replacement.",
 ];
@@ -166,7 +166,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "ast_grep_search",
     label: "AST Search",
-    description: "AST-aware code search. Use mode presets (calls/imports/functions/classes/exports) for common searches, or mode=pattern with a code-shaped ast-grep pattern. Use before grep/find/scripts for syntax patterns.",
+    description: "AST-aware code search. For calls/imports/functions/classes/exports, set mode plus name/module; use mode=pattern only for custom AST shapes. Use before grep/find/scripts for syntax patterns.",
     promptSnippet: AST_PROMPT_SNIPPET,
     promptGuidelines: AST_GUIDELINES,
     parameters: Type.Object({
