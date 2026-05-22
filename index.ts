@@ -3,16 +3,26 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 const LANGS = ["bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell", "html", "java", "javascript", "json", "kotlin", "lua", "nix", "php", "python", "ruby", "rust", "scala", "solidity", "swift", "tsx", "typescript", "yaml"] as const;
+const SEARCH_MODES = ["pattern", "calls", "imports", "functions", "classes", "exports"] as const;
 const MAX_OUTPUT = 60_000;
 const AST_PROMPT_SNIPPET =
   "Tool routing: use ast_grep_search before scripts/grep for structural code patterns; use grep for literal text.";
 const AST_GUIDELINES = [
   "Use ast_grep_search before writing scripts or using grep/find for structural code patterns such as functions, calls, imports, catch blocks, Tasks, or control flow.",
+  "Use ast_grep_search mode presets for common calls/imports/functions/classes/exports searches; use pattern for custom AST shapes.",
   "Use ast_grep_replace for structural edits; use grep only for exact literal text, strings, or identifiers.",
 ];
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
 type ToolCtx = { cwd?: string };
+type SearchMode = (typeof SEARCH_MODES)[number];
+type SgMatch = {
+  text?: string;
+  lines?: string;
+  file?: string;
+  path?: string;
+  range?: { start?: { line?: number; column?: number } };
+};
 
 function text(content: string, details: Record<string, unknown> = {}) {
   return { content: [{ type: "text" as const, text: content }], details };
@@ -44,47 +54,164 @@ async function sg(args: string[], cwd?: string) {
   return result;
 }
 
+function parseSgJson(stdout: string): SgMatch[] {
+  const raw = stdout.trim();
+  if (!raw) return [];
+  const data = JSON.parse(raw);
+  return Array.isArray(data) ? data : [data];
+}
+
+function matchKey(match: SgMatch): string {
+  const file = match.file ?? match.path ?? "?";
+  const start = match.range?.start;
+  return `${file}:${start?.line ?? "?"}:${start?.column ?? "?"}:${match.text ?? match.lines ?? ""}`;
+}
+
+function formatMatches(matches: SgMatch[], fallback = "No matches") {
+  if (matches.length === 0) return fallback;
+  return matches
+    .slice(0, 100)
+    .map((match) => {
+      const file = match.file ?? match.path ?? "?";
+      const start = match.range?.start;
+      const line = typeof start?.line === "number" ? start.line + 1 : "?";
+      const column = typeof start?.column === "number" ? start.column + 1 : "?";
+      const body = String(match.text ?? match.lines ?? "").trim();
+      return `${file}:${line}:${column}\n${body}`;
+    })
+    .join("\n\n---\n");
+}
+
 function formatSgJson(stdout: string, stderr: string) {
   const raw = stdout.trim();
   if (!raw) return stderr.trim() || "No matches";
   try {
-    const data = JSON.parse(raw);
-    const matches = Array.isArray(data) ? data : [data];
-    if (matches.length === 0) return "No matches";
-    return matches
-      .slice(0, 100)
-      .map((match: any) => {
-        const file = match.file ?? match.path ?? "?";
-        const start = match.range?.start;
-        const line = typeof start?.line === "number" ? start.line + 1 : "?";
-        const body = String(match.text ?? match.lines ?? "").trim();
-        return `${file}:${line}\n${body}`;
-      })
-      .join("\n\n---\n");
+    return formatMatches(parseSgJson(raw));
   } catch {
     return raw || stderr.trim();
   }
+}
+
+function requireString(value: unknown, name: string): string {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  throw new Error(`${name} is required for this ast_grep_search mode`);
+}
+
+function quote(value: string) {
+  return JSON.stringify(value);
+}
+
+function tsLike(lang: string) {
+  return ["javascript", "typescript", "tsx"].includes(lang);
+}
+
+function searchPatterns(params: any): { mode: SearchMode; patterns: string[] } {
+  const mode = (params.mode ?? "pattern") as SearchMode;
+  if (!SEARCH_MODES.includes(mode)) throw new Error(`Unsupported ast_grep_search mode: ${mode}`);
+  if (mode === "pattern") return { mode, patterns: [requireString(params.pattern, "pattern")] };
+
+  const name = typeof params.name === "string" && params.name.trim() ? params.name.trim() : undefined;
+  const module = typeof params.module === "string" && params.module.trim() ? params.module.trim() : undefined;
+
+  if (mode === "calls") return { mode, patterns: [`${requireString(name, "name")}($$$ARGS)`] };
+  if (mode === "classes") return { mode, patterns: [`class ${requireString(name, "name")} { $$$BODY }`] };
+
+  if (mode === "functions") {
+    const fn = requireString(name, "name");
+    return {
+      mode,
+      patterns: tsLike(params.lang)
+        ? [
+            `function ${fn}($$$ARGS) { $$$BODY }`,
+            `function ${fn}($$$ARGS): $$$RET { $$$BODY }`,
+            `const ${fn} = ($$$ARGS) => $$$BODY`,
+            `const ${fn} = function($$$ARGS) { $$$BODY }`,
+            `${fn}($$$ARGS) { $$$BODY }`,
+          ]
+        : [`function ${fn}($$$ARGS) { $$$BODY }`, `def ${fn}($$$ARGS): $$$BODY`],
+    };
+  }
+
+  if (mode === "imports") {
+    if (!module) return { mode, patterns: ["import $$$IMPORT from $$$MODULE", "import $$$MODULE", "const $$$IMPORT = require($$$MODULE)"] };
+    return {
+      mode,
+      patterns: [
+        `import $$$IMPORT from ${quote(module)}`,
+        `import ${quote(module)}`,
+        `const $$$IMPORT = require(${quote(module)})`,
+        `import $$$IMPORT = require(${quote(module)})`,
+      ],
+    };
+  }
+
+  const exported = name ?? "$$$NAME";
+  return {
+    mode,
+    patterns: tsLike(params.lang)
+      ? [
+          `export function ${exported}($$$ARGS) { $$$BODY }`,
+          `export function ${exported}($$$ARGS): $$$RET { $$$BODY }`,
+          `export class ${exported} { $$$BODY }`,
+          `export const ${exported} = $$$VALUE`,
+          name ? `export default function ${exported}($$$ARGS) { $$$BODY }` : "export default function($$$ARGS) { $$$BODY }",
+          name ? `export default class ${exported} { $$$BODY }` : "export default class { $$$BODY }",
+        ]
+      : [`export function ${exported}($$$ARGS) { $$$BODY }`, `pub fn ${exported}($$$ARGS) { $$$BODY }`],
+  };
 }
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "ast_grep_search",
     label: "AST Search",
-    description: "AST-aware code search for structural patterns. Use before grep/find/scripts for syntax patterns like functions, calls, imports, catch blocks, Tasks, or control flow. Use code-shaped patterns, not regex/text. Examples: foo($$$ARGS), function $NAME($$$ARGS) { $$$BODY }.",
+    description: "AST-aware code search. Use mode presets (calls/imports/functions/classes/exports) for common searches, or mode=pattern with a code-shaped ast-grep pattern. Use before grep/find/scripts for syntax patterns.",
     promptSnippet: AST_PROMPT_SNIPPET,
     promptGuidelines: AST_GUIDELINES,
     parameters: Type.Object({
-      pattern: Type.String(),
+      mode: Type.Optional(Type.String({ enum: [...SEARCH_MODES] as string[] })),
+      pattern: Type.Optional(Type.String()),
+      name: Type.Optional(Type.String()),
+      module: Type.Optional(Type.String()),
       lang: Type.String({ enum: [...LANGS] as string[] }),
       paths: Type.Optional(Type.Array(Type.String())),
       context: Type.Optional(Type.Number()),
     }),
     async execute(_id: string, params: any, _signal: AbortSignal, _update: unknown, ctx: ToolCtx) {
-      const args = ["run", "-p", params.pattern, "--lang", params.lang, "--json=compact"];
-      if (params.context != null) args.push("--context", String(params.context));
-      args.push(...(params.paths?.length ? params.paths : [ctx.cwd ?? "."]));
-      const result = await sg(args, ctx.cwd);
-      return text(formatSgJson(result.stdout, result.stderr), { code: result.code });
+      try {
+        const { mode, patterns } = searchPatterns(params);
+        const paths = params.paths?.length ? params.paths : [ctx.cwd ?? "."];
+        const matches: SgMatch[] = [];
+        const seen = new Set<string>();
+        const errors: string[] = [];
+        let code: number | null = 0;
+
+        for (const pattern of patterns) {
+          const args = ["run", "-p", pattern, "--lang", params.lang, "--json=compact"];
+          if (params.context != null) args.push("--context", String(params.context));
+          args.push(...paths);
+          const result = await sg(args, ctx.cwd);
+          if (result.code !== 0 && code === 0) code = result.code;
+          if (result.stderr.trim()) errors.push(result.stderr.trim());
+          try {
+            for (const match of parseSgJson(result.stdout)) {
+              const key = matchKey(match);
+              if (!seen.has(key)) {
+                seen.add(key);
+                matches.push(match);
+              }
+            }
+          } catch {
+            if (result.stdout.trim()) errors.push(result.stdout.trim());
+          }
+        }
+
+        if (matches.length > 0) code = 0;
+        const fallback = errors.length > 0 ? errors.join("\n") : "No matches";
+        return text(formatMatches(matches, fallback), { code, mode, patterns, matches: matches.length });
+      } catch (error) {
+        return text(error instanceof Error ? error.message : String(error), { code: 2 });
+      }
     },
   } as any);
 
