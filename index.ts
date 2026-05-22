@@ -4,8 +4,10 @@ import { Type } from "typebox";
 
 const LANGS = ["bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell", "html", "java", "javascript", "json", "kotlin", "lua", "nix", "php", "python", "ruby", "rust", "scala", "solidity", "swift", "tsx", "typescript", "yaml"] as const;
 const MAX_OUTPUT = 60_000;
+const AST_PROMPT_SNIPPET =
+  "Tool routing: use AST tools for structural code search/replacement; use grep for literal text.";
 const AST_GUIDELINES = [
-  "For structural code questions about functions, calls, imports, control flow, or patterns, prefer ast_grep_search before grep/find.",
+  "Use ast_grep_search for structural code questions about functions, calls, imports, control flow, or patterns; use Semble for behavior discovery, LSP for known symbols/callsites, and grep for exact literals.",
 ];
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
@@ -68,7 +70,7 @@ export default function (pi: ExtensionAPI) {
     name: "ast_grep_search",
     label: "AST Search",
     description: "AST-aware code search. Use code-shaped patterns, not regex/text. Examples: foo($$$ARGS), function $NAME($$$ARGS) { $$$BODY }.",
-    promptSnippet: "AST-aware code search using code-shaped patterns, not regex/text.",
+    promptSnippet: AST_PROMPT_SNIPPET,
     promptGuidelines: AST_GUIDELINES,
     parameters: Type.Object({
       pattern: Type.String(),
@@ -89,7 +91,7 @@ export default function (pi: ExtensionAPI) {
     name: "ast_grep_replace",
     label: "AST Replace",
     description: "AST-aware replacement. Dry-run by default; set apply=true to write changes.",
-    promptSnippet: "AST-aware find-and-replace; dry-run by default.",
+    promptSnippet: AST_PROMPT_SNIPPET,
     promptGuidelines: AST_GUIDELINES,
     parameters: Type.Object({
       pattern: Type.String(),
