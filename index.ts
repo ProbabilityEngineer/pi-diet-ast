@@ -6,11 +6,12 @@ const LANGS = ["bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell", "
 const SEARCH_MODES = ["pattern", "calls", "imports", "functions", "classes", "exports"] as const;
 const MAX_OUTPUT = 60_000;
 const AST_PROMPT_SNIPPET =
-  "Tool routing: use ast_grep_search before scripts/grep for structural code patterns; use grep for literal text.";
+  "Tool routing: use ast_grep_search first for structural code-shape questions; use grep for literal text.";
 const AST_GUIDELINES = [
-  "Use ast_grep_search before writing scripts or using grep/find for structural code patterns such as functions, calls, imports, catch blocks, Tasks, or control flow.",
+  "Use ast_grep_search first for structural code-shape questions, including calls, imports, exports, functions/classes, object literals, decorators, catch blocks, and control flow, even when the target file is unknown.",
   "Use ast_grep_search mode presets for common calls/imports/functions/classes/exports searches; use pattern for custom AST shapes.",
-  "Use ast_grep_replace for structural edits; use grep only for exact literal text, strings, or identifiers.",
+  "Use Semble for conceptual behavior discovery, not syntax-shape searches; use grep only for exact literal text, strings, or identifiers.",
+  "Use ast_grep_replace for structural edits; keep dry-run unless applying an intentional replacement.",
 ];
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
