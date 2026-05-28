@@ -6,11 +6,13 @@ const LANGS = ["bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell", "
 const SEARCH_MODES = ["pattern", "calls", "imports", "functions", "classes", "exports"] as const;
 const MAX_OUTPUT = 60_000;
 const AST_PROMPT_SNIPPET =
-  "Tool routing: use ast_grep_search first for structural code-shape questions; use grep for literal text.";
+  "Tool routing: use semantic/structural tools before raw text search: LSP for known symbols, AST for syntax/code shape, Semble for behavior discovery, grep only for exact literals/verification.";
 const AST_GUIDELINES = [
+  "Use LSP first for known symbols, definitions, references, diagnostics, hover/type info, and callsite tracing.",
   "Use ast_grep_search first for structural code-shape questions, including calls, imports, exports, functions/classes, object literals, decorators, catch blocks, and control flow, even when the target file is unknown.",
   "For calls/imports/functions/classes/exports, set mode plus name/module; use pattern only for custom AST shapes.",
-  "Use Semble for conceptual behavior discovery, not syntax-shape searches; use grep only for exact literal text, strings, or identifiers.",
+  "Use Semble for conceptual behavior discovery, not syntax-shape searches; use grep only for exact literal text, strings, identifiers, verification, and fallback.",
+  "Do not make structural code changes from grep output alone when LSP or AST tools can identify the code shape more safely.",
   "Use ast_grep_replace for structural edits; keep dry-run unless applying an intentional replacement.",
 ];
 
