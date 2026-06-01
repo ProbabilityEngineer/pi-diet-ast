@@ -1,25 +1,27 @@
 # pi-diet-ast
 
-Lightweight pi extension for structural code search and replacement with ast-grep.
+On-demand ast-grep structural search and replacement tools for Pi.
 
-Tools:
+`pi-diet-ast` gives Pi agents a compact pair of model-visible tools for syntax-aware code search and conservative structural replacement. It keeps the prompt surface small: one search tool, one replace tool, no automatic scans, and no dynamic context injection.
 
-- `ast_grep_search`
-- `ast_grep_replace`
+Use it when a request is shaped like code structure — calls, imports, functions, classes, exports, object patterns, decorators, control flow — where `grep` is too literal and semantic search is too broad.
 
-Includes short prompt guidance nudging agents to use AST search for structural code questions before broad grep/find.
+## Tools
+
+- `ast_grep_search` — AST-aware code search
+- `ast_grep_replace` — AST-aware replacement, dry-run by default
 
 ## Search ergonomics
 
-`ast_grep_search` supports two styles:
+`ast_grep_search` supports two styles.
 
-1. Custom ast-grep pattern:
+### Custom ast-grep pattern
 
 ```json
 { "mode": "pattern", "pattern": "foo($$$ARGS)", "lang": "typescript", "paths": ["index.ts"] }
 ```
 
-2. Compact presets for common structural searches:
+### Compact presets
 
 ```json
 { "mode": "calls", "name": "runJj", "lang": "typescript", "paths": ["index.ts"] }
@@ -47,8 +49,22 @@ Presets keep the tool count small while avoiding hand-written ast-grep patterns 
 
 ## Install
 
+From npm:
+
+```bash
+pi install npm:pi-diet-ast
+```
+
+From GitHub:
+
 ```bash
 pi install git:github.com/ProbabilityEngineer/pi-diet-ast
+```
+
+For project-local install, add `-l`:
+
+```bash
+pi install -l npm:pi-diet-ast
 ```
 
 For local testing:
@@ -64,3 +80,7 @@ Uses `sg` from `@ast-grep/cli` if available, otherwise falls back to:
 ```bash
 npx --yes @ast-grep/cli
 ```
+
+## Prompt overhead
+
+`pi-diet-ast` registers compact tools and routing guidance only. It does not inject scan results or repository state into prompts.

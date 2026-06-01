@@ -2,28 +2,31 @@
   "name": "pi-diet-ast",
   "version": "0.1.0",
   "type": "module",
-  "description": "Lightweight pi extension for ast-grep structural search and replace",
+  "description": "On-demand ast-grep structural search and replacement tools for Pi.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ProbabilityEngineer/pi-diet-ast.git"
+  },
+  "homepage": "https://github.com/ProbabilityEngineer/pi-diet-ast#readme",
+  "bugs": {
+    "url": "https://github.com/ProbabilityEngineer/pi-diet-ast/issues"
   },
   "main": "index.ts",
   "scripts": {
     "lint": "tsc --noEmit",
     "build": "tsc --project tsconfig.json"
   },
-  "keywords": ["pi", "pi-extension", "ast-grep"],
+  "keywords": ["pi-package", "pi-extension", "pi", "ast-grep", "structural-search", "codemod"],
   "license": "MIT",
-  "files": ["index.ts", "README.md", "tsconfig.json"],
+  "files": ["index.ts", "README.md", "LICENSE", "tsconfig.json"],
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
-  },
-  "dependencies": {
-    "typebox": "^1.0.0"
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typebox": "^1.0.0"
   },
   "pi": {
     "extensions": ["./index.ts"]
