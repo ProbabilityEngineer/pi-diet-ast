@@ -1,11 +1,11 @@
 {
-  "name": "pi-ast-lite",
+  "name": "pi-diet-ast",
   "version": "0.1.0",
   "type": "module",
   "description": "Lightweight pi extension for ast-grep structural search and replace",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ProbabilityEngineer/pi-ast-lite.git"
+    "url": "git+https://github.com/ProbabilityEngineer/pi-diet-ast.git"
   },
   "main": "index.ts",
   "scripts": {

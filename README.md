@@ -1,4 +1,4 @@
-# pi-ast-lite
+# pi-diet-ast
 
 Lightweight pi extension for structural code search and replacement with ast-grep.
 
@@ -48,7 +48,7 @@ Presets keep the tool count small while avoiding hand-written ast-grep patterns 
 ## Install
 
 ```bash
-pi install git:github.com/ProbabilityEngineer/pi-ast-lite
+pi install git:github.com/ProbabilityEngineer/pi-diet-ast
 ```
 
 For local testing:
