@@ -1,6 +1,6 @@
 {
   "name": "pi-diet-ast",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "On-demand ast-grep structural search and replacement tools for Pi.",
   "repository": {
@@ -16,9 +16,21 @@
     "lint": "tsc --noEmit",
     "build": "tsc --project tsconfig.json"
   },
-  "keywords": ["pi-package", "pi-extension", "pi", "ast-grep", "structural-search", "codemod"],
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "ast-grep",
+    "structural-search",
+    "codemod"
+  ],
   "license": "MIT",
-  "files": ["index.ts", "README.md", "LICENSE", "tsconfig.json"],
+  "files": [
+    "index.ts",
+    "README.md",
+    "LICENSE",
+    "tsconfig.json"
+  ],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "typebox": "*"
@@ -29,6 +41,8 @@
     "typebox": "^1.0.0"
   },
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   }
 }
