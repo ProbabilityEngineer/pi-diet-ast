@@ -1,5 +1,7 @@
 # pi-diet-ast
 
+> One of my diet context engineering and workflow extensions. Add pi-diet-LSP, pi-diet-Ripgrep, pi-repo-move and others from [npm](https://www.npmjs.com/~probabilityengineer).
+
 On-demand ast-grep structural search and replacement tools for Pi.
 
 `pi-diet-ast` gives Pi agents a compact pair of model-visible tools for syntax-aware code search and conservative structural replacement. It keeps the prompt surface small: one search tool, one replace tool, no automatic scans, and no dynamic context injection.

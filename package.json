@@ -1,6 +1,6 @@
 {
   "name": "pi-diet-ast",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "On-demand ast-grep structural search and replacement tools for Pi.",
   "repository": {
