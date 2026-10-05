@@ -14,6 +14,9 @@ const AST_GUIDELINES = [
   "Use Semble for conceptual behavior discovery, not syntax-shape searches; use grep only for exact literal text, strings, identifiers, verification, and fallback.",
   "Do not make structural code changes from grep output alone when LSP or AST tools can identify the code shape more safely.",
   "Use ast_grep_replace for structural edits; keep dry-run unless applying an intentional replacement.",
+  "Use concrete, syntactically valid ast-grep code patterns (not regex or prose), the source language, and narrowly scoped paths; presets are syntax-specific, not universal across languages.",
+  "Treat No matches as an empty result, not proof of absence; inspect error details, correct syntax/language/scope, then use a custom pattern or the existing LSP/Semble/exact-text fallback as appropriate.",
+  "Read the matched files to validate context before drawing conclusions or making edits.",
 ];
 
 type RunResult = { code: number | null; stdout: string; stderr: string };

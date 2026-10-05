@@ -35,6 +35,12 @@ Use it when a request is shaped like code structure — calls, imports, function
 
 Presets keep the tool count small while avoiding hand-written ast-grep patterns for frequent tasks. `mode` defaults to `pattern` for compatibility. For `mode: "calls"`, a bare name such as `registerCommand` matches both bare calls and member calls like `pi.registerCommand(...)`; use a dotted name for an exact callee.
 
+Patterns are structural source-code fragments, not regular expressions, prose, or YAML rules. Use `$NAME` for a single-node metavariable and `$$$ARGS` for a sequence of nodes, as in the existing pattern example. Choose concrete, syntactically valid queries and narrow `paths` to relevant files or directories.
+
+Supported `lang` values: `bash`, `c`, `cpp`, `csharp`, `css`, `elixir`, `go`, `haskell`, `html`, `java`, `javascript`, `json`, `kotlin`, `lua`, `nix`, `php`, `python`, `ruby`, `rust`, `scala`, `solidity`, `swift`, `tsx`, `typescript`, `yaml`. Presets generate fixed syntax patterns; not every preset works in every language. Use `mode: "pattern"` for language-specific shapes that presets do not cover.
+
+Keep the existing routing: LSP for known symbols and references, AST for syntax/code shape, Semble for conceptual behavior discovery, and exact text search for literals or verification. An empty search returns `No matches`; invalid parameters or patterns may return an error instead. Neither establishes that the code is absent: check syntax, language, paths, and returned details, then try a language-specific pattern or the appropriate existing fallback. Read matched files to validate their surrounding context before drawing conclusions or editing.
+
 ## Replace
 
 `ast_grep_replace` remains conservative: it is a dry run unless `apply: true` is passed.
