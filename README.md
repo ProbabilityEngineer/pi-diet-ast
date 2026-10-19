@@ -35,7 +35,7 @@ Use it when a request is shaped like code structure — calls, imports, function
 
 Presets keep the tool count small while avoiding hand-written ast-grep patterns for frequent tasks. `mode` defaults to `pattern` for compatibility. For `mode: "calls"`, a bare name such as `registerCommand` matches both bare calls and member calls like `pi.registerCommand(...)`; use a dotted name for an exact callee.
 
-Patterns are structural source-code fragments, not regular expressions, prose, or YAML rules. Use `$NAME` for a single-node metavariable and `$$$ARGS` for a sequence of nodes, as in the existing pattern example. Choose concrete, syntactically valid queries and narrow `paths` to relevant files or directories.
+Patterns are structural source-code fragments, not regular expressions, prose, or ast-grep YAML rule objects. Use `$NAME` for a single-node metavariable and `$$$ARGS` for a sequence of nodes, as in the existing pattern example. Choose concrete, syntactically valid queries and narrow `paths` to relevant files or directories.
 
 Supported `lang` values: `bash`, `c`, `cpp`, `csharp`, `css`, `elixir`, `go`, `haskell`, `html`, `java`, `javascript`, `json`, `kotlin`, `lua`, `nix`, `php`, `python`, `ruby`, `rust`, `scala`, `solidity`, `swift`, `tsx`, `typescript`, `yaml`. Presets generate fixed syntax patterns; not every preset works in every language. Use `mode: "pattern"` for language-specific shapes that presets do not cover.
 
