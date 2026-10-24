@@ -6,16 +6,15 @@ const LANGS = ["bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell", "
 const SEARCH_MODES = ["pattern", "calls", "imports", "functions", "classes", "exports"] as const;
 const MAX_OUTPUT = 60_000;
 const AST_PROMPT_SNIPPET =
-  "Tool routing: use semantic/structural tools before raw text search: LSP for known symbols, AST for syntax/code shape, Semble for behavior discovery, grep only for exact literals/verification.";
+  "Use AST search first for syntax/code-shape questions and AST replacement for deliberate structural edits; replacements default to dry-run.";
 const AST_GUIDELINES = [
-  "Use LSP first for known symbols, definitions, references, diagnostics, hover/type info, and callsite tracing.",
   "Use ast_grep_search first for structural code-shape questions, including calls, imports, exports, functions/classes, object literals, decorators, catch blocks, and control flow, even when the target file is unknown.",
   "For calls/imports/functions/classes/exports, set mode plus name/module; use pattern only for custom AST shapes.",
-  "Use Semble for conceptual behavior discovery, not syntax-shape searches; use grep only for exact literal text, strings, identifiers, verification, and fallback.",
-  "Do not make structural code changes from grep output alone when LSP or AST tools can identify the code shape more safely.",
+  "AST matching identifies syntax shapes, not resolved symbol identity, types, or conceptual behavior.",
+  "Do not make structural code changes from text matches alone; validate the code shape and surrounding context first.",
   "Use ast_grep_replace for structural edits; keep dry-run unless applying an intentional replacement.",
   "Use concrete, syntactically valid ast-grep code patterns (not regex or prose), the source language, and narrowly scoped paths; presets are syntax-specific, not universal across languages.",
-  "Treat No matches as an empty result, not proof of absence; inspect error details, correct syntax/language/scope, then use a custom pattern or the existing LSP/Semble/exact-text fallback as appropriate.",
+  "Treat No matches as an empty result, not proof of absence; inspect error details, correct syntax/language/scope, then try a language-specific custom pattern or inspect the relevant source directly.",
   "Read the matched files to validate context before drawing conclusions or making edits.",
 ];
 

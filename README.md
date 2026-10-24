@@ -39,7 +39,7 @@ Patterns are structural source-code fragments, not regular expressions, prose, o
 
 Supported `lang` values: `bash`, `c`, `cpp`, `csharp`, `css`, `elixir`, `go`, `haskell`, `html`, `java`, `javascript`, `json`, `kotlin`, `lua`, `nix`, `php`, `python`, `ruby`, `rust`, `scala`, `solidity`, `swift`, `tsx`, `typescript`, `yaml`. Presets generate fixed syntax patterns; not every preset works in every language. Use `mode: "pattern"` for language-specific shapes that presets do not cover.
 
-Keep the existing routing: LSP for known symbols and references, AST for syntax/code shape, Semble for conceptual behavior discovery, and exact text search for literals or verification. An empty search returns `No matches`; invalid parameters or patterns may return an error instead. Neither establishes that the code is absent: check syntax, language, paths, and returned details, then try a language-specific pattern or the appropriate existing fallback. Read matched files to validate their surrounding context before drawing conclusions or editing.
+Use AST search first for syntax/code-shape questions, even when the target file is unknown. AST matching identifies syntax shapes, not resolved symbol identity, types, or conceptual behavior. An empty search returns `No matches`; invalid parameters or patterns may return an error instead. Neither establishes that the code is absent: check syntax, language, paths, and returned details, then try a language-specific pattern or inspect the relevant source directly. Read matched files to validate their surrounding context before drawing conclusions or editing.
 
 ## Replace
 
