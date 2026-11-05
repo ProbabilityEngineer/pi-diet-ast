@@ -1,10 +1,16 @@
 import { spawn } from "node:child_process";
+import { mkdtemp, open, stat, writeFile, appendFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 const LANGS = ["bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell", "html", "java", "javascript", "json", "kotlin", "lua", "nix", "php", "python", "ruby", "rust", "scala", "solidity", "swift", "tsx", "typescript", "yaml"] as const;
 const SEARCH_MODES = ["pattern", "calls", "imports", "functions", "classes", "exports"] as const;
-const MAX_OUTPUT = 60_000;
+const MAX_PARSE_BYTES = 8 * 1024 * 1024;
+const MAX_PREVIEW_BYTES = 20_000;
+const MAX_PREVIEW_LINES = 400;
 const AST_PROMPT_SNIPPET =
   "Use AST search first for syntax/code-shape questions and AST replacement for deliberate structural edits; replacements default to dry-run.";
 const AST_GUIDELINES = [
@@ -18,7 +24,14 @@ const AST_GUIDELINES = [
   "Read the matched files to validate context before drawing conclusions or making edits.",
 ];
 
-type RunResult = { code: number | null; stdout: string; stderr: string };
+type RunResult = {
+  code: number | null;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  capture: string;
+};
 type ToolCtx = { cwd?: string };
 type SearchMode = (typeof SEARCH_MODES)[number];
 type SgMatch = {
@@ -34,21 +47,50 @@ function text(content: string, details: Record<string, unknown> = {}) {
 }
 
 async function run(cmd: string, args: string[], cwd?: string): Promise<RunResult> {
-  return await new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd: cwd ?? process.cwd(), shell: false });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (data: Buffer) => {
-      stdout += String(data);
-      if (stdout.length > MAX_OUTPUT) child.kill();
+  const capture = await mkdtemp(join(tmpdir(), "pi-diet-ast-"));
+  const stdoutPath = join(capture, "stdout.txt");
+  const stderrPath = join(capture, "stderr.txt");
+  const out = await open(stdoutPath, "w", 0o600);
+  const err = await open(stderrPath, "w", 0o600);
+  let spawnError: Error | undefined;
+  let code: number | null;
+  try {
+    code = await new Promise<number | null>((resolve) => {
+      const child = spawn(cmd, args, {
+        cwd: cwd ?? process.cwd(), shell: false,
+        stdio: ["ignore", out.fd, err.fd],
+      });
+      child.on("error", (error) => { spawnError = error; });
+      child.on("close", (exitCode) => resolve(spawnError ? 127 : exitCode));
     });
-    child.stderr.on("data", (data: Buffer) => {
-      stderr += String(data);
-      if (stderr.length > MAX_OUTPUT) child.kill();
-    });
-    child.on("error", (err) => resolve({ code: 127, stdout, stderr: String(err) }));
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
-  });
+  } finally {
+    await Promise.all([out.close(), err.close()]);
+  }
+  if (spawnError) await appendFile(stderrPath, String(spawnError));
+  await writeFile(join(capture, "invocation.json"), JSON.stringify({ cmd, args, cwd, code }), { mode: 0o600 });
+  const stdout = await readCapture(stdoutPath, MAX_PARSE_BYTES);
+  const stderr = await readCapture(stderrPath, MAX_PREVIEW_BYTES);
+  return { code, stdout: stdout.text, stderr: stderr.text,
+    stdoutTruncated: stdout.truncated, stderrTruncated: stderr.truncated, capture };
+}
+
+async function readCapture(path: string, limit: number) {
+  const size = (await stat(path)).size;
+  const file = await open(path, "r");
+  try {
+    const buffer = Buffer.alloc(Math.min(size, limit));
+    let offset = 0;
+    while (offset < buffer.length) {
+      const { bytesRead } = await file.read(buffer, offset, buffer.length - offset, offset);
+      if (!bytesRead) break;
+      offset += bytesRead;
+    }
+    const decoder = new StringDecoder("utf8");
+    const text = decoder.write(buffer.subarray(0, offset));
+    return { text: text + (size <= limit ? decoder.end() : ""), truncated: size > limit };
+  } finally {
+    await file.close();
+  }
 }
 
 async function sg(args: string[], cwd?: string) {
@@ -63,7 +105,11 @@ function parseSgJson(stdout: string): SgMatch[] {
   const raw = stdout.trim();
   if (!raw) return [];
   const data = JSON.parse(raw);
-  return Array.isArray(data) ? data : [data];
+  const matches = Array.isArray(data) ? data : [data];
+  if (matches.some(match => !match || typeof match !== "object" || Array.isArray(match))) {
+    throw new Error("Unexpected ast-grep JSON record");
+  }
+  return matches;
 }
 
 function matchKey(match: SgMatch): string {
@@ -87,14 +133,28 @@ function formatMatches(matches: SgMatch[], fallback = "No matches") {
     .join("\n\n---\n");
 }
 
-function formatSgJson(stdout: string, stderr: string) {
-  const raw = stdout.trim();
-  if (!raw) return stderr.trim() || "No matches";
-  try {
-    return formatMatches(parseSgJson(raw));
-  } catch {
-    return raw || stderr.trim();
+function boundedText(content: string, details: Record<string, unknown>, captures: string[]) {
+  let bytes = 0, lines = 1, end = 0;
+  for (const character of content) {
+    const size = Buffer.byteLength(character, "utf8");
+    if (bytes + size > MAX_PREVIEW_BYTES || (character === "\n" && lines >= MAX_PREVIEW_LINES)) break;
+    bytes += size;
+    if (character === "\n") lines++;
+    end += character.length;
   }
+  const previewTruncated = end < content.length;
+  const notice = previewTruncated ? "\n\n[Preview shortened by byte/line limit; later match text may be omitted.]" : "";
+  const omitted = Number(details.omittedMatches ?? 0);
+  const summary = [
+    omitted > 0 ? `[${omitted} parsed matches omitted by the 100-match cap.]` : "",
+    details.incomplete === true ? "[Results incomplete or command failed; inspect captured output before drawing conclusions.]" : "",
+    details.capturePreviewTruncated === true ? "[Capture preview shortened; complete streams remain in stdout.txt and stderr.txt.]" : "",
+  ].filter(Boolean).join("\n");
+  return {
+    ...text(`${summary ? summary + "\n\n" : ""}${content.slice(0, end)}${notice}\n\nCaptured output: ${captures.join(", ")}\nEach temporary directory contains stdout.txt, stderr.txt, and invocation.json. Read these for omitted evidence; temporary files are not a durable archive.`,
+      { ...details, previewTruncated, captures }),
+    isError: details.incomplete === true,
+  };
 }
 
 function requireString(value: unknown, name: string): string {
@@ -194,6 +254,8 @@ export default function (pi: ExtensionAPI) {
         const matches: SgMatch[] = [];
         const seen = new Set<string>();
         const errors: string[] = [];
+        const captures: string[] = [];
+        let incomplete = false;
         let code: number | null = 0;
 
         for (const pattern of patterns) {
@@ -201,8 +263,16 @@ export default function (pi: ExtensionAPI) {
           if (params.context != null) args.push("--context", String(params.context));
           args.push(...paths);
           const result = await sg(args, ctx.cwd);
+          captures.push(result.capture);
+          if (result.code === null || (result.code !== 0 && result.code !== 1)) incomplete = true;
           if (result.code !== 0 && code === 0) code = result.code;
           if (result.stderr.trim()) errors.push(result.stderr.trim());
+          if (result.stderrTruncated) errors.push("Stderr preview shortened; full stderr.txt is captured.");
+          if (result.stdoutTruncated) {
+            incomplete = true;
+            errors.push("Output exceeds the 8 MiB JSON parsing budget; no partial JSON was parsed. Read stdout.txt.");
+            continue;
+          }
           try {
             for (const match of parseSgJson(result.stdout)) {
               const key = matchKey(match);
@@ -212,15 +282,18 @@ export default function (pi: ExtensionAPI) {
               }
             }
           } catch {
-            if (result.stdout.trim()) errors.push(result.stdout.trim());
+            incomplete = true;
+            errors.push("Could not parse ast-grep JSON. Read captured stdout.txt; it is not treated as complete results.");
           }
         }
 
-        if (matches.length > 0) code = 0;
+        if (matches.length > 0 && !incomplete) code = 0;
         const fallback = errors.length > 0 ? errors.join("\n") : "No matches";
-        return text(formatMatches(matches, fallback), { code, mode, patterns, matches: matches.length });
+        const display = formatMatches(matches, fallback);
+        return boundedText(matches.length > 0 && errors.length ? `${display}\n\n${errors.join("\n")}` : display,
+          { code, mode, matches: matches.length, omittedMatches: Math.max(0, matches.length - 100), incomplete }, captures);
       } catch (error) {
-        return text(error instanceof Error ? error.message : String(error), { code: 2 });
+        return { ...text(String(error instanceof Error ? error.message : error).slice(0, 2_000), { code: 2 }), isError: true };
       }
     },
   } as any);
@@ -244,10 +317,29 @@ export default function (pi: ExtensionAPI) {
       else args.push("--json=compact");
       args.push(...params.paths);
       const result = await sg(args, ctx.cwd);
-      return text(
-        params.apply ? result.stderr || result.stdout || "Applied" : formatSgJson(result.stdout, result.stderr),
-        { code: result.code, applied: Boolean(params.apply) },
-      );
+      let incomplete = result.code === null || (result.code !== 0 && result.code !== 1);
+      let matches: SgMatch[] = [];
+      let display: string;
+      if (params.apply) {
+        display = result.stderr || result.stdout || (incomplete ? "Replacement failed." : "Replacement command completed.");
+      } else if (result.stdoutTruncated) {
+        incomplete = true;
+        display = "Dry-run output exceeds the 8 MiB JSON parsing budget; no partial JSON was parsed. Read stdout.txt.";
+      } else {
+        try {
+          matches = parseSgJson(result.stdout);
+          display = formatMatches(matches, result.stderr.trim() || "No matches");
+        } catch {
+          incomplete = true;
+          display = "Could not parse dry-run JSON; inspect captured stdout.txt.";
+        }
+      }
+      return boundedText(display, {
+        code: result.code, applied: Boolean(params.apply) && !incomplete,
+        applyRequested: Boolean(params.apply), incomplete,
+        capturePreviewTruncated: result.stdoutTruncated || result.stderrTruncated,
+        matches: matches.length, omittedMatches: Math.max(0, matches.length - 100),
+      }, [result.capture]);
     },
   } as any);
 }
